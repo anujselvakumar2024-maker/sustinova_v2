@@ -1,1 +1,1690 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AgroSmart — ESP32 Smart Irrigation with Rain Management</title>
+  <style>
+    :root {
+      --bg: #f1f8e9; 
+      --card: #ffffff; 
+      --accent: #4caf50; 
+      --muted: #666666;
+      --glass: rgba(76,175,80,0.1); 
+      --danger: #f44336; 
+      --success: #4caf50;
+      --card-border: rgba(76,175,80,0.2);
+      --primary-green: #2e7d32;
+      --light-green: #c8e6c9;
+      --dark-green: #1b5e20;
+      --background-green: #e8f5e8;
+      --warning: #ff9800;
+      --rain-blue: #2196F3;
+      --info-blue: #03a9f4;
+    }
 
+    * { 
+      box-sizing: border-box; 
+      font-family: Inter, ui-sans-serif, system-ui, "Segoe UI", Roboto, Arial, sans-serif; 
+    }
+
+    body { 
+      margin: 0; 
+      background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%); 
+      color: #2e7d32;
+      min-height: 100vh;
+      padding-bottom: 100px;
+    }
+
+    .app { 
+      max-width: 1200px; 
+      margin: 0 auto; 
+      padding: 20px; 
+    }
+
+    /* Header */
+    header { 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      margin-bottom: 24px;
+      background: var(--card);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 2px 8px rgba(76,175,80,0.1);
+    }
+
+    .brand { 
+      display: flex; 
+      gap: 16px; 
+      align-items: center; 
+    }
+
+    .logo { 
+      width: 60px; 
+      height: 60px; 
+      border-radius: 12px; 
+      background: linear-gradient(135deg, var(--accent), #66bb6a); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      color: white; 
+      font-weight: 800; 
+      font-size: 24px;
+    }
+
+    .title { 
+      font-size: 20px; 
+      font-weight: 700; 
+      margin-bottom: 4px;
+    }
+
+    .subtitle { 
+      font-size: 14px; 
+      color: var(--muted); 
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* Mode Toggle */
+    .mode-toggle-container {
+      display: inline-block;
+      background: var(--card);
+      border-radius: 50px;
+      padding: 4px;
+      box-shadow: 0 2px 8px rgba(76,175,80,0.15);
+      border: 2px solid var(--card-border);
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 240px;
+      height: 48px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, var(--primary-green), var(--accent));
+      transition: 0.4s;
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .slider::before {
+      position: absolute;
+      content: "";
+      height: 40px;
+      width: 112px;
+      left: 4px;
+      bottom: 4px;
+      background: white;
+      transition: 0.4s;
+      border-radius: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 2;
+    }
+
+    input:checked + .slider {
+      background: linear-gradient(135deg, var(--accent), #81c784);
+    }
+
+    input:checked + .slider::before {
+      transform: translateX(120px);
+    }
+
+    .toggle-text-manual,
+    .toggle-text-auto {
+      z-index: 3;
+      position: relative;
+      transition: color 0.4s;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    input:not(:checked) + .slider .toggle-text-manual {
+      color: var(--primary-green);
+      font-weight: 800;
+    }
+
+    input:checked + .slider .toggle-text-auto {
+      color: var(--primary-green);
+      font-weight: 800;
+    }
+
+    /* Language Selector */
+    .language-selector { 
+      position: relative; 
+      display: inline-block; 
+    }
+
+    .language-button { 
+      width: 48px; 
+      height: 48px; 
+      border-radius: 50%; 
+      background: linear-gradient(135deg, var(--accent), #66bb6a); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      color: white; 
+      font-size: 20px; 
+      cursor: pointer; 
+      transition: all 0.3s ease; 
+      border: 2px solid var(--card-border);
+      box-shadow: 0 2px 8px rgba(76,175,80,0.2);
+    }
+
+    .language-button:hover { 
+      transform: scale(1.05); 
+      box-shadow: 0 4px 12px rgba(76,175,80,0.3); 
+    }
+
+    .language-dropdown { 
+      position: absolute; 
+      top: 56px; 
+      right: 0; 
+      background: var(--card); 
+      border-radius: 8px; 
+      border: 1px solid var(--card-border); 
+      box-shadow: 0 4px 16px rgba(76,175,80,0.2); 
+      display: none; 
+      z-index: 1000; 
+      min-width: 140px;
+      overflow: hidden;
+    }
+
+    .language-dropdown.show { 
+      display: block; 
+    }
+
+    .language-option { 
+      padding: 12px 16px; 
+      cursor: pointer; 
+      transition: all 0.3s ease; 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .language-option:hover { 
+      background: var(--light-green); 
+    }
+
+    /* AI Status Display */
+    .ai-status-container {
+      background: linear-gradient(135deg, var(--card), #f8fffe);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 16px 0;
+      box-shadow: 0 4px 12px rgba(76,175,80,0.15);
+      display: none;
+    }
+
+    .ai-status-container.show {
+      display: block;
+    }
+
+    .ai-status-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .ai-status-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 16px;
+      animation: pulse-ai 2s infinite;
+    }
+
+    @keyframes pulse-ai {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .ai-status-title {
+      font-weight: 700;
+      color: var(--primary-green);
+      font-size: 16px;
+    }
+
+    .ai-decision {
+      background: var(--light-green);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      color: var(--primary-green);
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .ai-reasoning {
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      font-style: italic;
+    }
+
+    /* Rain Banner */
+    .rain-banner { 
+      background: linear-gradient(135deg, var(--rain-blue), #42a5f5); 
+      color: white; 
+      padding: 16px 24px; 
+      border-radius: 12px; 
+      margin-bottom: 20px; 
+      display: none; 
+      align-items: center; 
+      gap: 16px; 
+      animation: rain-pulse 2s infinite alternate;
+      box-shadow: 0 4px 12px rgba(33,150,243,0.3);
+    }
+
+    .rain-banner.show { 
+      display: flex; 
+    }
+
+    @keyframes rain-pulse {
+      from { opacity: 0.9; }
+      to { opacity: 1; }
+    }
+
+    .rain-icon { 
+      font-size: 28px; 
+    }
+
+    .rain-text { 
+      flex: 1; 
+      font-weight: 600; 
+      font-size: 16px;
+    }
+
+    /* Irrigation Messages */
+    .irrigation-message { 
+      padding: 16px 24px; 
+      margin-bottom: 20px; 
+      border-radius: 12px; 
+      font-weight: 600; 
+      text-align: center; 
+      display: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .irrigation-message.show { 
+      display: block; 
+    }
+
+    .irrigation-message.paused { 
+      background: rgba(255, 152, 0, 0.15); 
+      border: 2px solid var(--warning); 
+      color: #e65100; 
+    }
+
+    .irrigation-message.resumed { 
+      background: rgba(76, 175, 80, 0.15); 
+      border: 2px solid var(--success); 
+      color: var(--primary-green); 
+    }
+
+    .irrigation-message.cancelled { 
+      background: rgba(244, 67, 54, 0.15); 
+      border: 2px solid var(--danger); 
+      color: #c62828; 
+    }
+
+    /* Main Content */
+    .main-grid { 
+      display: grid; 
+      grid-template-columns: 1fr 300px; 
+      gap: 24px; 
+    }
+
+    .content { 
+      display: flex; 
+      flex-direction: column; 
+      gap: 24px; 
+    }
+
+    .sidebar { 
+      display: flex; 
+      flex-direction: column; 
+      gap: 20px; 
+    }
+
+    /* Cards */
+    .card { 
+      background: var(--card); 
+      border-radius: 12px; 
+      border: 1px solid var(--card-border); 
+      padding: 24px; 
+      box-shadow: 0 2px 8px rgba(76,175,80,0.1);
+    }
+
+    .card-title { 
+      font-size: 18px; 
+      font-weight: 700; 
+      margin-bottom: 16px; 
+      color: var(--primary-green);
+    }
+
+    /* Sensor Status Grid */
+    .sensor-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+      gap: 16px; 
+    }
+
+    .sensor-item { 
+      background: var(--light-green); 
+      border: 1px solid var(--card-border); 
+      border-radius: 10px; 
+      padding: 20px; 
+      text-align: center; 
+      transition: all 0.3s ease;
+    }
+
+    .sensor-item:hover { 
+      transform: translateY(-2px); 
+      box-shadow: 0 4px 12px rgba(76,175,80,0.2); 
+    }
+
+    .sensor-item.updating { 
+      background: rgba(76,175,80,0.2); 
+      border-color: var(--accent);
+      animation: sensor-update 1s ease;
+    }
+
+    @keyframes sensor-update {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+
+    .sensor-label { 
+      color: var(--muted); 
+      font-size: 12px; 
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px; 
+    }
+
+    .sensor-value { 
+      font-weight: 700; 
+      color: var(--primary-green); 
+      font-size: 18px; 
+    }
+
+    .sensor-value.rain { 
+      color: var(--rain-blue); 
+    }
+
+    .sensor-value.warning { 
+      color: var(--warning); 
+    }
+
+    .sensor-value.danger { 
+      color: var(--danger); 
+    }
+
+    /* Connection Status */
+    .connection-status { 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+      font-size: 14px; 
+      font-weight: 600;
+    }
+
+    .status-dot { 
+      width: 10px; 
+      height: 10px; 
+      border-radius: 50%; 
+      background: var(--danger);
+    }
+
+    .status-dot.connected { 
+      background: var(--success); 
+      animation: pulse-dot 2s infinite; 
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Control Buttons */
+    .control-section { 
+      display: flex; 
+      gap: 12px; 
+      justify-content: center; 
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    button { 
+      background: var(--accent); 
+      border: none; 
+      padding: 12px 24px; 
+      border-radius: 8px; 
+      color: white; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+
+    button:hover { 
+      background: var(--primary-green); 
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(76,175,80,0.3);
+    }
+
+    button:disabled { 
+      background: var(--muted); 
+      cursor: not-allowed; 
+      transform: none;
+      box-shadow: none;
+    }
+
+    button:disabled:hover { 
+      background: var(--muted); 
+      transform: none; 
+    }
+
+    button.danger { 
+      background: var(--danger); 
+    }
+
+    button.danger:hover { 
+      background: #c62828; 
+    }
+
+    /* Bottom Action Buttons */
+    .bottom-actions {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      background: var(--card);
+      padding: 12px 20px;
+      border-radius: 25px;
+      box-shadow: 0 6px 20px rgba(76,175,80,0.3);
+      border: 2px solid var(--accent);
+      z-index: 100;
+    }
+
+    .action-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      background: var(--light-green);
+      color: var(--primary-green);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      transition: all 0.3s ease;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .action-btn:hover {
+      background: var(--accent);
+      color: white;
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(76,175,80,0.4);
+    }
+
+    .action-btn .icon {
+      font-size: 20px;
+      margin-bottom: 2px;
+    }
+
+    .action-btn .label {
+      font-size: 8px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(46,125,50,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal {
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 8px 32px rgba(76,175,80,0.3);
+    }
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--light-green);
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary-green);
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+    .close-btn:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      background: var(--light-green);
+    }
+    .log-item{padding:8px;border-radius:8px;border:1px solid var(--card-border);margin-bottom:8px;background:var(--card)}
+    .btn-ghost{background:transparent;border:1px solid var(--card-border);padding:8px;border-radius:8px;color:var(--muted);cursor:pointer;transition:all 0.3s ease}
+    .btn-ghost:hover{background:var(--light-green);color:var(--primary-green)}
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .muted{color:var(--muted);font-size:13px}
+
+    /* Last Updated */
+    .last-updated { 
+      text-align: center; 
+      color: var(--muted); 
+      font-size: 12px; 
+      margin-top: 12px;
+      font-style: italic;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) { 
+      .main-grid { 
+        grid-template-columns: 1fr; 
+      }
+
+      .sensor-grid { 
+        grid-template-columns: repeat(2, 1fr); 
+      }
+
+      .control-section { 
+        flex-direction: column; 
+      }
+
+      header {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+      }
+
+      .brand {
+        justify-content: center;
+      }
+
+      .header-controls {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .bottom-actions{
+        bottom: 10px;
+        gap: 8px;
+        padding: 8px 16px;
+      }
+      .action-btn{
+        width: 50px;
+        height: 50px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Motor Log Modal -->
+    <div class="modal-overlay" id="motorLogModal">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title">Motor Log & System History</div>
+          <button class="close-btn" id="closeMotorLogModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="motorLogContent">
+            <div class="log-item">
+              <strong>Loading irrigation history...</strong><br>
+              <small class="muted">Please wait while we fetch the data</small>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-ghost" id="refreshMotorLog">Refresh</button>
+          <button class="btn-primary" id="closeMotorLogBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications Modal -->
+    <div class="modal-overlay" id="notificationsModal">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title">System Notifications & Alerts</div>
+          <button class="close-btn" id="closeNotificationsModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="notificationsContent">
+            <div class="log-item">
+              <strong>🌧️ Rain Management</strong><br>
+              <small class="muted">System automatically pauses/resumes irrigation based on rain detection</small>
+            </div>
+            <div class="log-item">
+              <strong>🤖 AI Monitoring</strong><br>
+              <small class="muted">AI continuously analyzes soil conditions for optimal irrigation timing</small>
+            </div>
+            <div class="log-item">
+              <strong>📡 ESP32 Connected</strong><br>
+              <small class="muted">Hardware sensors are actively monitoring and sending real-time data</small>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-ghost" id="clearNotifications">Clear All</button>
+          <button class="btn-primary" id="closeNotificationsBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Chatbot Modal -->
+    <div class="modal-overlay" id="chatbotModal" style="backdrop-filter: blur(4px);">
+      <div class="modal" style="height: 600px; max-height: 80vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="background: linear-gradient(135deg, var(--accent), #81c784); color: white;">
+          <div class="modal-title" style="color: white; display: flex; align-items: center; gap: 10px;">
+            <span>🤖</span> <span data-translate="farming_assistant">Farming Assistant</span>
+          </div>
+          <button class="close-btn" id="closeChatbot" style="color: white;">×</button>
+        </div>
+        <div style="flex: 1; padding: 20px; overflow-y: auto; background: linear-gradient(135deg, #f8fff8, var(--background-green));" id="chatbotMessages">
+          <div style="margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 16px;">🌱</div>
+            <div style="background: var(--light-green); padding: 12px 16px; border-radius: 16px; border-left: 4px solid var(--accent);">
+              <span data-translate="chat_welcome">Hello! I'm your AI farming assistant. Ask me about irrigation, crops, soil management, pest control, or weather. Your ESP32 sensors provide real-time data for smart farming decisions!</span>
+            </div>
+          </div>
+        </div>
+        <div style="padding: 16px 20px; background: var(--card); border-top: 1px solid var(--card-border); display: flex; gap: 12px; align-items: center;">
+          <input type="text" id="chatbotInput" data-translate-placeholder="chat_placeholder" placeholder="Ask me about farming, irrigation, crops..." style="flex: 1; padding: 12px 16px; border: 2px solid var(--card-border); border-radius: 25px; background: var(--background-green); color: var(--primary-green); font-size: 14px; outline: none;">
+          <button id="chatbotSend" style="width: 44px; height: 44px; border-radius: 50%; background: var(--accent); border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px;">▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="logo">AS</div>
+        <div>
+          <div class="title" data-translate="title">AgroSmart ESP32</div>
+          <div class="subtitle" data-translate="subtitle">AI Smart Irrigation with Rain Management</div>
+        </div>
+      </div>
+      <div class="header-controls">
+        <!-- Mode Toggle -->
+        <div class="mode-toggle-container">
+          <label class="toggle-switch">
+            <input type="checkbox" id="modeToggle">
+            <span class="slider">
+              <span class="toggle-text-manual" data-translate="manual">Manual</span>
+              <span class="toggle-text-auto" data-translate="automatic">Automatic</span>
+            </span>
+          </label>
+        </div>
+        <!-- Language Selector -->
+        <div class="language-selector">
+          <div class="language-button" id="languageButton">🌐</div>
+          <div class="language-dropdown" id="languageDropdown">
+            <div class="language-option" data-lang="en">🇺🇸 English</div>
+            <div class="language-option" data-lang="hi">🇮🇳 हिंदी</div>
+            <div class="language-option" data-lang="ne">🇳🇵 नेपाली</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Rain Status Banner -->
+    <div class="rain-banner" id="rainBanner">
+      <div class="rain-icon">🌧️</div>
+      <div class="rain-text" data-translate="rain_detected">Rain Detected - Irrigation System Paused</div>
+    </div>
+
+    <!-- Irrigation Status Messages -->
+    <div class="irrigation-message paused" id="pausedMessage" data-translate="irrigation_paused">
+      Due to rain detection, active irrigation has been paused automatically
+    </div>
+
+    <div class="irrigation-message resumed" id="resumedMessage" data-translate="irrigation_resumed">
+      Rain has stopped. Soil still needs water - irrigation timer resumed
+    </div>
+
+    <div class="irrigation-message cancelled" id="cancelledMessage" data-translate="irrigation_cancelled">
+      Irrigation cancelled - sufficient soil moisture after rain
+    </div>
+
+    <!-- AI Status Display (Only in Automatic mode) -->
+    <div class="ai-status-container" id="aiStatusContainer">
+      <div class="ai-status-header">
+        <div class="ai-status-icon">🤖</div>
+        <div class="ai-status-title" data-translate="ai_irrigation">AI Irrigation System</div>
+      </div>
+      <div class="ai-decision" id="aiDecisionText" data-translate="ai_analyzing">Analyzing sensor data...</div>
+      <div class="ai-reasoning" id="aiReasoningText" data-translate="ai_processing">AI is processing real-time ESP32 sensor data for irrigation decisions</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-grid">
+      <div class="content">
+        <!-- Live Sensor Data -->
+        <div class="card">
+          <div class="card-title" data-translate="live_sensors">Live ESP32 Sensor Data</div>
+          <div class="sensor-grid">
+            <div class="sensor-item" id="tempSensor">
+              <div class="sensor-label" data-translate="temperature">Temperature</div>
+              <div class="sensor-value" id="temperatureValue">--°C</div>
+            </div>
+            <div class="sensor-item" id="humiditySensor">
+              <div class="sensor-label" data-translate="humidity">Humidity</div>
+              <div class="sensor-value" id="humidityValue">--%</div>
+            </div>
+            <div class="sensor-item" id="soilSensor">
+              <div class="sensor-label" data-translate="soil_moisture">Soil Moisture</div>
+              <div class="sensor-value" id="soilMoistureValue">--%</div>
+            </div>
+            <div class="sensor-item" id="waterSensor">
+              <div class="sensor-label" data-translate="water_level">Water Level</div>
+              <div class="sensor-value" id="waterLevelValue">--L</div>
+            </div>
+            <div class="sensor-item" id="rainSensor">
+              <div class="sensor-label" data-translate="rain_sensor">Rain Sensor</div>
+              <div class="sensor-value" id="rainSensorValue">--</div>
+            </div>
+            <div class="sensor-item" id="pumpSensor">
+              <div class="sensor-label" data-translate="pump_status">Pump Status</div>
+              <div class="sensor-value" id="pumpStatusValue">--</div>
+            </div>
+          </div>
+          <div class="last-updated">
+            <span data-translate="last_updated">Last Updated:</span> <span id="lastUpdatedTime">Never</span>
+          </div>
+        </div>
+
+        <!-- Manual Control (Only in Manual mode) -->
+        <div class="card" id="manualControlSection">
+          <div class="card-title" data-translate="manual_control">Manual Irrigation Control</div>
+          <p data-translate="control_description">Control your ESP32 irrigation pump directly from this interface</p>
+          <div class="control-section">
+            <button id="startPumpBtn" data-translate="start_pump">🚀 Start Pump (10 min)</button>
+            <button id="stopPumpBtn" class="danger" data-translate="stop_pump">🛑 Stop Pump</button>
+            <button id="refreshBtn" data-translate="refresh_data">🔄 Refresh Data</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <!-- Connection Status -->
+        <div class="card">
+          <div class="card-title" data-translate="connection_status">ESP32 Connection</div>
+          <div class="connection-status" id="connectionStatus">
+            <div class="status-dot" id="connectionDot"></div>
+            <span id="connectionText" data-translate="connecting">Connecting...</span>
+          </div>
+          <div style="margin-top: 12px; font-size: 12px; color: var(--muted);">
+            <div>ESP32 IP: <span id="esp32IP">--</span></div>
+            <div data-translate="data_frequency">Data updates every 5 seconds</div>
+          </div>
+        </div>
+
+        <!-- System Info -->
+        <div class="card">
+          <div class="card-title" data-translate="system_info">System Information</div>
+          <div style="font-size: 12px; color: var(--muted); line-height: 1.6;">
+            <div>• <span data-translate="rain_management">Rain management active</span></div>
+            <div>• <span data-translate="auto_pause">Auto pause/resume enabled</span></div>
+            <div>• <span data-translate="smart_decisions">Smart irrigation decisions</span></div>
+            <div>• <span data-translate="multilingual">Multi-language support</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Action Buttons -->
+    <div class="bottom-actions">
+      <button class="action-btn" id="motorLogBtn">
+        <div class="icon">📊</div>
+        <div class="label" data-translate="motor_label">MOTOR</div>
+      </button>
+      <button class="action-btn" id="notificationsBtn">
+        <div class="icon">🔔</div>
+        <div class="label" data-translate="alerts_label">ALERTS</div>
+      </button>
+      <button class="action-btn" id="aiChatBtn">
+        <div class="icon">🤖</div>
+        <div class="label" data-translate="chat_label">AI CHAT</div>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Translation system
+    const translations = {
+      en: {
+        title: "AgroSmart ESP32",
+        subtitle: "AI Smart Irrigation with Rain Management",
+        manual: "Manual",
+        automatic: "Automatic",
+        rain_detected: "Rain Detected - Irrigation System Paused",
+        irrigation_paused: "Due to rain detection, active irrigation has been paused automatically",
+        irrigation_resumed: "Rain has stopped. Soil still needs water - irrigation timer resumed",
+        irrigation_cancelled: "Irrigation cancelled - sufficient soil moisture after rain",
+        ai_irrigation: "AI Irrigation System",
+        ai_analyzing: "Analyzing sensor data...",
+        ai_processing: "AI is processing real-time ESP32 sensor data for irrigation decisions",
+        live_sensors: "Live ESP32 Sensor Data",
+        temperature: "Temperature",
+        humidity: "Humidity",
+        soil_moisture: "Soil Moisture",
+        water_level: "Water Level",
+        rain_sensor: "Rain Sensor",
+        pump_status: "Pump Status",
+        manual_control: "Manual Irrigation Control",
+        control_description: "Control your ESP32 irrigation pump directly from this interface",
+        start_pump: "🚀 Start Pump (10 min)",
+        stop_pump: "🛑 Stop Pump",
+        refresh_data: "🔄 Refresh Data",
+        connection_status: "ESP32 Connection",
+        system_info: "System Information",
+        last_updated: "Last Updated:",
+        connecting: "Connecting...",
+        connected: "Connected",
+        disconnected: "Disconnected",
+        data_frequency: "Data updates every 5 seconds",
+        rain_management: "Rain management active",
+        auto_pause: "Auto pause/resume enabled",
+        smart_decisions: "Smart irrigation decisions",
+        multilingual: "Multi-language support",
+        motor_label: "MOTOR",
+        alerts_label: "ALERTS",
+        chat_label: "AI CHAT",
+        farming_assistant: "Farming Assistant",
+        chat_welcome: "Hello! I'm your AI farming assistant. Ask me about irrigation, crops, soil management, pest control, or weather. Your ESP32 sensors provide real-time data for smart farming decisions!",
+        chat_placeholder: "Ask me about farming, irrigation, crops...",
+        raining: "🌧️ Raining",
+        no_rain: "☀️ No Rain",
+        pump_on: "🟢 Running",
+        pump_off: "🔴 Stopped"
+      },
+      hi: {
+        title: "एग्रोस्मार्ट ESP32",
+        subtitle: "बारिश प्रबंधन के साथ AI स्मार्ट सिंचाई",
+        manual: "मैनुअल",
+        automatic: "स्वचालित",
+        rain_detected: "बारिश का पता चला - सिंचाई सिस्टम रुका हुआ",
+        irrigation_paused: "बारिश के कारण सक्रिय सिंचाई स्वचालित रूप से रोक दी गई है",
+        irrigation_resumed: "बारिश रुक गई है। मिट्टी को अभी भी पानी की जरूरत है - सिंचाई टाइमर फिर से शुरू",
+        irrigation_cancelled: "सिंचाई रद्द - बारिश के बाद पर्याप्त मिट्टी की नमी",
+        ai_irrigation: "AI सिंचाई सिस्टम",
+        ai_analyzing: "सेंसर डेटा का विश्लेषण...",
+        ai_processing: "AI सिंचाई निर्णयों के लिए रीयल-टाइम ESP32 सेंसर डेटा को प्रोसेस कर रहा है",
+        live_sensors: "लाइव ESP32 सेंसर डेटा",
+        temperature: "तापमान",
+        humidity: "नमी",
+        soil_moisture: "मिट्टी की नमी",
+        water_level: "पानी का स्तर",
+        rain_sensor: "बारिश सेंसर",
+        pump_status: "पंप स्थिति",
+        manual_control: "मैनुअल सिंचाई नियंत्रण",
+        control_description: "इस इंटरफेस से अपने ESP32 सिंचाई पंप को सीधे नियंत्रित करें",
+        start_pump: "🚀 पंप शुरू करें (10 मिनट)",
+        stop_pump: "🛑 पंप बंद करें",
+        refresh_data: "🔄 डेटा रिफ्रेश करें",
+        connection_status: "ESP32 कनेक्शन",
+        system_info: "सिस्टम जानकारी",
+        last_updated: "अंतिम अपडेट:",
+        connecting: "कनेक्ट हो रहा है...",
+        connected: "जुड़ा हुआ",
+        disconnected: "डिस्कनेक्ट",
+        data_frequency: "डेटा हर 5 सेकंड में अपडेट होता है",
+        rain_management: "बारिश प्रबंधन सक्रिय",
+        auto_pause: "ऑटो पॉज़/रिज्यूम सक्षम",
+        smart_decisions: "स्मार्ट सिंचाई निर्णय",
+        multilingual: "बहुभाषी समर्थन",
+        motor_label: "मोटर",
+        alerts_label: "अलर्ट",
+        chat_label: "AI चैट",
+        farming_assistant: "कृषि सहायक",
+        chat_welcome: "नमस्ते! मैं आपका AI कृषि सहायक हूँ। मुझसे सिंचाई, फसल, मिट्टी प्रबंधन, कीट नियंत्रण या मौसम के बारे में पूछें। आपके ESP32 सेंसर स्मार्ट खेती के निर्णयों के लिए रीयल-टाइम डेटा प्रदान करते हैं!",
+        chat_placeholder: "मुझसे खेती, सिंचाई, फसल के बारे में पूछें...",
+        raining: "🌧️ बारिश",
+        no_rain: "☀️ कोई बारिश नहीं",
+        pump_on: "🟢 चल रहा है",
+        pump_off: "🔴 रुका हुआ"
+      },
+      ne: {
+        title: "एग्रोस्मार्ट ESP32",
+        subtitle: "वर्षा व्यवस्थापनको साथ AI स्मार्ट सिंचाई",
+        manual: "म्यानुअल",
+        automatic: "स्वचालित",
+        rain_detected: "वर्षा पत्ता लाग्यो - सिंचाई प्रणाली रोकिएको",
+        irrigation_paused: "वर्षाका कारण सक्रिय सिंचाई स्वचालित रूपमा रोकिएको छ",
+        irrigation_resumed: "वर्षा रोकिएको छ। माटोलाई अझै पानी चाहिन्छ - सिंचाई टाइमर पुनः सुरु",
+        irrigation_cancelled: "सिंचाई रद्द - वर्षा पछि पर्याप्त माटोको नमी",
+        ai_irrigation: "AI सिंचाई प्रणाली",
+        ai_analyzing: "सेन्सर डेटा विश्लेषण गर्दै...",
+        ai_processing: "AI ले सिंचाई निर्णयहरूका लागि रियल-टाइम ESP32 सेन्सर डेटा प्रोसेसिङ गर्दैछ",
+        live_sensors: "प्रत्यक्ष ESP32 सेन्सर डेटा",
+        temperature: "तापक्रम",
+        humidity: "आर्द्रता",
+        soil_moisture: "माटोको नमी",
+        water_level: "पानीको स्तर",
+        rain_sensor: "वर्षा सेन्सर",
+        pump_status: "पम्प स्थिति",
+        manual_control: "म्यानुअल सिंचाई नियन्त्रण",
+        control_description: "यस इन्टरफेसबाट आफ्नो ESP32 सिंचाई पम्पलाई सीधै नियन्त्रण गर्नुहोस्",
+        start_pump: "🚀 पम्प सुरु गर्नुहोस् (10 मिनेट)",
+        stop_pump: "🛑 पम्प बन्द गर्नुहोस्",
+        refresh_data: "🔄 डेटा रिफ्रेश गर्नुहोस्",
+        connection_status: "ESP32 जडान",
+        system_info: "प्रणाली जानकारी",
+        last_updated: "अन्तिम अपडेट:",
+        connecting: "जडान गर्दै...",
+        connected: "जडित",
+        disconnected: "विच्छेदित",
+        data_frequency: "डेटा प्रत्येक 5 सेकेन्डमा अपडेट हुन्छ",
+        rain_management: "वर्षा व्यवस्थापन सक्रिय",
+        auto_pause: "स्वचालित रोक/पुनः सुरु सक्षम",
+        smart_decisions: "स्मार्ट सिंचाई निर्णयहरू",
+        multilingual: "बहुभाषिक समर्थन",
+        motor_label: "मोटर",
+        alerts_label: "अलर्ट",
+        chat_label: "AI च्याट",
+        farming_assistant: "कृषि सहायक",
+        chat_welcome: "नमस्ते! म तपाईंको AI कृषि सहायक हुँ। मलाई सिंचाई, बाली, माटो व्यवस्थापन, कीट नियन्त्रण वा मौसमको बारेमा सोध्नुहोस्। तपाईंका ESP32 सेन्सरहरूले स्मार्ट खेतीका निर्णयहरूका लागि रियल-टाइम डेटा प्रदान गर्छन्!",
+        chat_placeholder: "मलाई खेती, सिंचाई, बालीको बारेमा सोध्नुहोस्...",
+        raining: "🌧️ वर्षा",
+        no_rain: "☀️ वर्षा छैन",
+        pump_on: "🟢 चलिरहेको",
+        pump_off: "🔴 रोकिएको"
+      }
+    };
+
+    // Application state
+    let currentLanguage = localStorage.getItem('agrosmart-language') || 'en';
+    let currentMode = 'manual'; // manual or automatic
+    let apiBaseUrl = '/api';
+    let lastSensorUpdate = null;
+    let updateInterval = null;
+    let aiCheckInterval = null;
+
+    // DOM elements
+    const elements = {
+      modeToggle: document.getElementById('modeToggle'),
+      languageButton: document.getElementById('languageButton'),
+      languageDropdown: document.getElementById('languageDropdown'),
+      rainBanner: document.getElementById('rainBanner'),
+      pausedMessage: document.getElementById('pausedMessage'),
+      resumedMessage: document.getElementById('resumedMessage'),
+      cancelledMessage: document.getElementById('cancelledMessage'),
+      aiStatusContainer: document.getElementById('aiStatusContainer'),
+      aiDecisionText: document.getElementById('aiDecisionText'),
+      aiReasoningText: document.getElementById('aiReasoningText'),
+      manualControlSection: document.getElementById('manualControlSection'),
+      connectionDot: document.getElementById('connectionDot'),
+      connectionText: document.getElementById('connectionText'),
+      esp32IP: document.getElementById('esp32IP'),
+      lastUpdatedTime: document.getElementById('lastUpdatedTime'),
+      startPumpBtn: document.getElementById('startPumpBtn'),
+      stopPumpBtn: document.getElementById('stopPumpBtn'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      motorLogBtn: document.getElementById('motorLogBtn'),
+      notificationsBtn: document.getElementById('notificationsBtn'),
+      aiChatBtn: document.getElementById('aiChatBtn')
+    };
+
+    // Initialize application
+    function initializeApp() {
+      setupEventListeners();
+      translatePage();
+      updateModeDisplay();
+      startDataUpdates();
+      fetchSensorData(); // Initial fetch
+    }
+
+    // Setup event listeners
+    function setupEventListeners() {
+      // Mode toggle
+      elements.modeToggle.addEventListener('change', (e) => {
+        currentMode = e.target.checked ? 'automatic' : 'manual';
+        updateModeDisplay();
+      });
+
+      // Language selector
+      elements.languageButton.addEventListener('click', toggleLanguageDropdown);
+      document.addEventListener('click', handleOutsideClick);
+
+      document.querySelectorAll('.language-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+          currentLanguage = e.target.dataset.lang;
+          localStorage.setItem('agrosmart-language', currentLanguage);
+          translatePage();
+          elements.languageDropdown.classList.remove('show');
+        });
+      });
+
+      // Control buttons
+      elements.startPumpBtn.addEventListener('click', startPump);
+      elements.stopPumpBtn.addEventListener('click', stopPump);
+      elements.refreshBtn.addEventListener('click', () => {
+        fetchSensorData();
+        showNotification('Data refreshed!', 'success');
+      });
+
+      // Bottom action buttons
+      elements.motorLogBtn.addEventListener('click', openMotorLog);
+      elements.notificationsBtn.addEventListener('click', () => {
+        document.getElementById('notificationsModal').classList.add('active');
+      });
+      elements.aiChatBtn.addEventListener('click', () => {
+        document.getElementById('chatbotModal').classList.add('active');
+      });
+
+      // Modal close events
+      setupModalEvents();
+
+      // Chatbot events
+      setupChatbotEvents();
+    }
+
+    function setupModalEvents() {
+      // Motor Log Modal
+      document.getElementById('closeMotorLogModal').addEventListener('click', () => {
+        document.getElementById('motorLogModal').classList.remove('active');
+      });
+      document.getElementById('closeMotorLogBtn').addEventListener('click', () => {
+        document.getElementById('motorLogModal').classList.remove('active');
+      });
+      document.getElementById('refreshMotorLog').addEventListener('click', openMotorLog);
+
+      // Notifications Modal
+      document.getElementById('closeNotificationsModal').addEventListener('click', () => {
+        document.getElementById('notificationsModal').classList.remove('active');
+      });
+      document.getElementById('closeNotificationsBtn').addEventListener('click', () => {
+        document.getElementById('notificationsModal').classList.remove('active');
+      });
+
+      // Chatbot Modal
+      document.getElementById('closeChatbot').addEventListener('click', () => {
+        document.getElementById('chatbotModal').classList.remove('active');
+      });
+
+      // Close modals when clicking overlay
+      document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.classList.remove('active');
+          }
+        });
+      });
+    }
+
+    function setupChatbotEvents() {
+      const chatInput = document.getElementById('chatbotInput');
+      const chatSend = document.getElementById('chatbotSend');
+
+      chatSend.addEventListener('click', sendChatMessage);
+      chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          sendChatMessage();
+        }
+      });
+    }
+
+    function updateModeDisplay() {
+      if (currentMode === 'automatic') {
+        elements.aiStatusContainer.classList.add('show');
+        elements.manualControlSection.style.display = 'none';
+        startAIMonitoring();
+      } else {
+        elements.aiStatusContainer.classList.remove('show');
+        elements.manualControlSection.style.display = 'block';
+        stopAIMonitoring();
+      }
+    }
+
+    function startAIMonitoring() {
+      if (aiCheckInterval) clearInterval(aiCheckInterval);
+
+      fetchAIDecision(); // Initial check
+      aiCheckInterval = setInterval(() => {
+        fetchAIDecision();
+      }, 15000); // Every 15 seconds
+    }
+
+    function stopAIMonitoring() {
+      if (aiCheckInterval) {
+        clearInterval(aiCheckInterval);
+        aiCheckInterval = null;
+      }
+    }
+
+    function toggleLanguageDropdown() {
+      elements.languageDropdown.classList.toggle('show');
+    }
+
+    function handleOutsideClick(e) {
+      if (!e.target.closest('.language-selector')) {
+        elements.languageDropdown.classList.remove('show');
+      }
+    }
+
+    // Translation function
+    function translatePage() {
+      document.querySelectorAll('[data-translate]').forEach(element => {
+        const key = element.dataset.translate;
+        if (translations[currentLanguage] && translations[currentLanguage][key]) {
+          element.textContent = translations[currentLanguage][key];
+        }
+      });
+
+      // Update placeholder
+      const chatInput = document.getElementById('chatbotInput');
+      if (chatInput && translations[currentLanguage].chat_placeholder) {
+        chatInput.placeholder = translations[currentLanguage].chat_placeholder;
+      }
+    }
+
+    // Data fetching and updates
+    async function fetchSensorData() {
+      try {
+        const response = await fetch(`${apiBaseUrl}/sensors`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        updateSensorDisplay(data);
+        updateConnectionStatus(true, data.esp32_ip);
+        handleRainStatus(data);
+        handleIrrigationMessages(data);
+
+        lastSensorUpdate = new Date();
+        elements.lastUpdatedTime.textContent = lastSensorUpdate.toLocaleTimeString();
+
+      } catch (error) {
+        console.error('Error fetching sensor data:', error);
+        updateConnectionStatus(false);
+        showNotification('Connection error - retrying...', 'error');
+      }
+    }
+
+    async function fetchAIDecision() {
+      if (currentMode !== 'automatic') return;
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/ai/analyze`);
+
+        if (response.ok) {
+          const decision = await response.json();
+          updateAIDisplay(decision);
+        }
+      } catch (error) {
+        console.error('Error fetching AI decision:', error);
+      }
+    }
+
+    function updateAIDisplay(decision) {
+      elements.aiDecisionText.textContent = decision.reason || 'Analyzing sensor data...';
+      elements.aiReasoningText.textContent = decision.reasoning || 'AI is processing real-time ESP32 sensor data';
+
+      if (decision.should_irrigate) {
+        elements.aiDecisionText.style.background = 'rgba(255, 152, 0, 0.2)';
+        elements.aiDecisionText.style.borderColor = '#ff9800';
+        elements.aiDecisionText.style.color = '#e65100';
+      } else {
+        elements.aiDecisionText.style.background = 'var(--light-green)';
+        elements.aiDecisionText.style.borderColor = 'var(--accent)';
+        elements.aiDecisionText.style.color = 'var(--primary-green)';
+      }
+    }
+
+    function updateSensorDisplay(data) {
+      // Temperature
+      const temp = data.temperature;
+      document.getElementById('temperatureValue').textContent = temp ? `${temp}°C` : '--°C';
+      animateUpdate('tempSensor');
+
+      // Humidity
+      const humidity = data.humidity;
+      document.getElementById('humidityValue').textContent = humidity ? `${humidity}%` : '--%';
+      animateUpdate('humiditySensor');
+
+      // Soil Moisture
+      const soilMoisture = data.soil_moisture;
+      const soilElement = document.getElementById('soilMoistureValue');
+      soilElement.textContent = soilMoisture ? `${soilMoisture}%` : '--%';
+      soilElement.className = 'sensor-value';
+      if (soilMoisture && soilMoisture < 30) {
+        soilElement.classList.add('warning');
+      } else if (soilMoisture && soilMoisture < 20) {
+        soilElement.classList.add('danger');
+      }
+      animateUpdate('soilSensor');
+
+      // Water Level
+      const waterLevel = data.water_level;
+      const waterElement = document.getElementById('waterLevelValue');
+      waterElement.textContent = waterLevel ? `${waterLevel}L` : '--L';
+      waterElement.className = 'sensor-value';
+      if (waterLevel && waterLevel < 200) {
+        waterElement.classList.add('warning');
+      }
+      animateUpdate('waterSensor');
+
+      // Rain Sensor
+      const rainElement = document.getElementById('rainSensorValue');
+      if (data.rain_detected) {
+        rainElement.textContent = translations[currentLanguage].raining;
+        rainElement.classList.add('rain');
+      } else {
+        rainElement.textContent = translations[currentLanguage].no_rain;
+        rainElement.classList.remove('rain');
+      }
+      animateUpdate('rainSensor');
+
+      // Pump Status
+      const pumpElement = document.getElementById('pumpStatusValue');
+      if (data.pump_running) {
+        pumpElement.textContent = translations[currentLanguage].pump_on;
+        pumpElement.classList.add('warning');
+      } else {
+        pumpElement.textContent = translations[currentLanguage].pump_off;
+        pumpElement.classList.remove('warning');
+      }
+      animateUpdate('pumpSensor');
+    }
+
+    function animateUpdate(elementId) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.classList.add('updating');
+        setTimeout(() => {
+          element.classList.remove('updating');
+        }, 1000);
+      }
+    }
+
+    function updateConnectionStatus(connected, esp32IP = null) {
+      if (connected) {
+        elements.connectionDot.classList.add('connected');
+        elements.connectionText.textContent = translations[currentLanguage].connected;
+        elements.esp32IP.textContent = esp32IP || '--';
+      } else {
+        elements.connectionDot.classList.remove('connected');
+        elements.connectionText.textContent = translations[currentLanguage].disconnected;
+      }
+    }
+
+    function handleRainStatus(data) {
+      const rainDetected = data.rain_detected;
+
+      if (rainDetected) {
+        elements.rainBanner.classList.add('show');
+        elements.startPumpBtn.disabled = true;
+      } else {
+        elements.rainBanner.classList.remove('show');
+        elements.startPumpBtn.disabled = false;
+      }
+    }
+
+    function handleIrrigationMessages(data) {
+      // Hide all messages first
+      elements.pausedMessage.classList.remove('show');
+      elements.resumedMessage.classList.remove('show');
+      elements.cancelledMessage.classList.remove('show');
+
+      // Show relevant messages based on irrigation state
+      if (data.irrigation_state && data.irrigation_state.irrigation_messages) {
+        const messages = data.irrigation_state.irrigation_messages;
+
+        messages.forEach(message => {
+          switch (message.type) {
+            case 'paused':
+              elements.pausedMessage.classList.add('show');
+              break;
+            case 'resumed':
+              elements.resumedMessage.classList.add('show');
+              break;
+            case 'cancelled':
+              elements.cancelledMessage.classList.add('show');
+              break;
+          }
+        });
+      }
+    }
+
+    // Control functions
+    async function startPump() {
+      if (elements.startPumpBtn.disabled) {
+        showNotification('Cannot start pump during rain!', 'warning');
+        return;
+      }
+
+      try {
+        elements.startPumpBtn.disabled = true;
+        elements.startPumpBtn.textContent = 'Starting...';
+
+        const response = await fetch(`${apiBaseUrl}/irrigation/control`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            action: 'start',
+            duration: 10
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          showNotification('Pump started successfully!', 'success');
+        } else {
+          showNotification(`Error: ${result.error}`, 'error');
+        }
+
+      } catch (error) {
+        showNotification('Network error - please try again', 'error');
+        console.error('Start pump error:', error);
+      } finally {
+        elements.startPumpBtn.disabled = false;
+        elements.startPumpBtn.textContent = translations[currentLanguage].start_pump;
+      }
+    }
+
+    async function stopPump() {
+      try {
+        elements.stopPumpBtn.disabled = true;
+        elements.stopPumpBtn.textContent = 'Stopping...';
+
+        const response = await fetch(`${apiBaseUrl}/irrigation/control`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            action: 'stop'
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          showNotification('Pump stopped successfully!', 'success');
+        } else {
+          showNotification(`Error: ${result.error}`, 'error');
+        }
+
+      } catch (error) {
+        showNotification('Network error - please try again', 'error');
+        console.error('Stop pump error:', error);
+      } finally {
+        elements.stopPumpBtn.disabled = false;
+        elements.stopPumpBtn.textContent = translations[currentLanguage].stop_pump;
+      }
+    }
+
+    async function openMotorLog() {
+      document.getElementById('motorLogModal').classList.add('active');
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/motor-log`);
+        const data = await response.json();
+
+        const logContent = document.getElementById('motorLogContent');
+        logContent.innerHTML = '';
+
+        if (data.logs && data.logs.length > 0) {
+          data.logs.forEach(log => {
+            const div = document.createElement('div');
+            div.className = 'log-item';
+
+            const date = new Date(log.timestamp).toLocaleString();
+            const action = log.action.replace('_', ' ').toUpperCase();
+            const duration = log.duration || 'N/A';
+
+            div.innerHTML = `
+              <strong>${action}</strong><br>
+              <small class="muted">${date} - Duration: ${duration} min</small>
+              ${log.reason ? `<br><small class="muted">Reason: ${log.reason}</small>` : ''}
+            `;
+
+            logContent.appendChild(div);
+          });
+        } else {
+          logContent.innerHTML = '<div class="log-item"><strong>No irrigation history found</strong><br><small class="muted">Start using the system to see logs here</small></div>';
+        }
+      } catch (error) {
+        console.error('Error fetching motor log:', error);
+        document.getElementById('motorLogContent').innerHTML = '<div class="log-item"><strong>Error loading logs</strong><br><small class="muted">Failed to connect to server</small></div>';
+      }
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chatbotInput');
+      const message = input.value.trim();
+
+      if (!message) return;
+
+      addChatMessage(message, 'user');
+      input.value = '';
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: message,
+            language: currentLanguage
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setTimeout(() => {
+            addChatMessage(result.response, 'bot');
+          }, 1000);
+        } else {
+          addChatMessage('Sorry, I encountered an error. Please try again.', 'bot');
+        }
+      } catch (error) {
+        console.error('Error in chat:', error);
+        addChatMessage('Sorry, I cannot connect to the server right now.', 'bot');
+      }
+    }
+
+    function addChatMessage(message, type) {
+      const container = document.getElementById('chatbotMessages');
+      const div = document.createElement('div');
+      div.style.cssText = 'margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px;' + (type === 'user' ? ' flex-direction: row-reverse;' : '');
+
+      const avatar = document.createElement('div');
+      avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;';
+      avatar.style.background = type === 'bot' ? 'var(--accent)' : 'var(--primary-green)';
+      avatar.style.color = 'white';
+      avatar.textContent = type === 'bot' ? '🌱' : '👤';
+
+      const content = document.createElement('div');
+      content.style.cssText = 'padding: 12px 16px; border-radius: 16px; max-width: 80%;';
+      if (type === 'bot') {
+        content.style.background = 'var(--light-green)';
+        content.style.borderLeft = '4px solid var(--accent)';
+      } else {
+        content.style.background = 'var(--primary-green)';
+        content.style.color = 'white';
+      }
+      content.textContent = message;
+
+      div.appendChild(avatar);
+      div.appendChild(content);
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Utility functions
+    function showNotification(message, type = 'info') {
+      const notification = document.createElement('div');
+      notification.textContent = message;
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 16px 24px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 10000;
+        max-width: 300px;
+        word-wrap: break-word;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        background: ${getNotificationColor(type)};
+      `;
+
+      document.body.appendChild(notification);
+
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 4000);
+    }
+
+    function getNotificationColor(type) {
+      switch (type) {
+        case 'success': return '#4caf50';
+        case 'error': return '#f44336';
+        case 'warning': return '#ff9800';
+        default: return '#2196f3';
+      }
+    }
+
+    function startDataUpdates() {
+      // Update every 5 seconds as requested
+      updateInterval = setInterval(fetchSensorData, 5000);
+    }
+
+    function stopDataUpdates() {
+      if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+      }
+    }
+
+    // Handle page visibility changes to pause/resume updates
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        stopDataUpdates();
+        stopAIMonitoring();
+      } else {
+        startDataUpdates();
+        if (currentMode === 'automatic') {
+          startAIMonitoring();
+        }
+        fetchSensorData(); // Immediate update when page becomes visible
+      }
+    });
+
+    // Initialize the application when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeApp);
+    } else {
+      initializeApp();
+    }
+  </script>
+</body>
+</html>
