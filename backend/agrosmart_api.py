@@ -1,4 +1,4 @@
-# AgroSmart AI Backend API Server - Final Version with Chat & AI
+# AgroSmart AI Backend API Server - FIXED for Connection Issues
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
@@ -9,7 +9,7 @@ import requests
 from typing import Dict, Any, Optional
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=['*'])  # Allow all origins for testing
 
 # Global state
 sensor_data: Dict[str, Any] = {
@@ -150,17 +150,19 @@ chatbot = FarmingChatbot()
 @app.route('/')
 def home():
     return jsonify({
-        "message": "AgroSmart AI API Server - Rain Management & AI Chat",
-        "version": "7.0.0",
+        "message": "AgroSmart AI API Server - Fixed Connection Issues",
+        "version": "8.0.0",
         "status": "running",
         "esp32_connected": esp32_ip is not None,
-        "features": ["Rain Management", "AI Irrigation", "Farming Chatbot", "Multi-language"]
+        "features": ["Rain Management", "AI Irrigation", "Farming Chatbot", "Multi-language"],
+        "timestamp": datetime.datetime.now().isoformat()
     })
 
 @app.route('/api/sensors', methods=['GET'])
 def get_sensors():
     response_data = sensor_data.copy()
     response_data["irrigation_state"] = irrigation_state
+    response_data["esp32_connected"] = esp32_ip is not None
     return jsonify(response_data)
 
 @app.route('/api/sensors', methods=['POST'])
@@ -168,6 +170,9 @@ def update_sensors():
     global sensor_data, esp32_ip
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No data received"}), 400
+
         sensor_data.update(data)
         sensor_data["last_updated"] = datetime.datetime.now().isoformat()
         sensor_data["connection_status"] = "connected"
@@ -175,38 +180,44 @@ def update_sensors():
         if "esp32_ip" in data:
             esp32_ip = data["esp32_ip"]
 
+        print(f"✅ Sensor data updated: {data}")
         return jsonify({"success": True, "data": sensor_data})
     except Exception as e:
+        print(f"❌ Error updating sensors: {e}")
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/ai/analyze', methods=['GET'])
 def ai_analyze():
     """AI irrigation analysis endpoint"""
-    decision = ai_engine.analyze_irrigation_need(sensor_data)
+    try:
+        decision = ai_engine.analyze_irrigation_need(sensor_data)
 
-    # Auto-start irrigation if AI recommends and no rain
-    if (decision["should_irrigate"] and 
-        not sensor_data.get("rain_detected", False) and 
-        not irrigation_state["active_irrigation"]):
+        # Auto-start irrigation if AI recommends and no rain
+        if (decision["should_irrigate"] and 
+            not sensor_data.get("rain_detected", False) and 
+            not irrigation_state["active_irrigation"]):
 
-        success = start_esp32_irrigation(decision["duration"], "ai_automatic")
-        if success:
-            irrigation_state["active_irrigation"] = {
-                "type": "ai_automatic",
-                "duration": decision["duration"],
-                "start_time": datetime.datetime.now().isoformat(),
-                "reason": decision["reason"]
-            }
+            success = start_esp32_irrigation(decision["duration"], "ai_automatic")
+            if success:
+                irrigation_state["active_irrigation"] = {
+                    "type": "ai_automatic",
+                    "duration": decision["duration"],
+                    "start_time": datetime.datetime.now().isoformat(),
+                    "reason": decision["reason"]
+                }
 
-            irrigation_log.append({
-                "timestamp": datetime.datetime.now().isoformat(),
-                "action": "ai_auto_start",
-                "duration": decision["duration"],
-                "reason": decision["reason"],
-                "soil_moisture": sensor_data.get("soil_moisture", 0)
-            })
+                irrigation_log.append({
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "action": "ai_auto_start",
+                    "duration": decision["duration"],
+                    "reason": decision["reason"],
+                    "soil_moisture": sensor_data.get("soil_moisture", 0)
+                })
 
-    return jsonify(decision)
+        return jsonify(decision)
+    except Exception as e:
+        print(f"❌ AI analysis error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/rain/alert', methods=['POST'])
 def rain_alert():
@@ -234,8 +245,11 @@ def rain_alert():
                 "reason": "Rain detected - irrigation paused automatically"
             })
 
+            print(f"🌧️ Rain alert: Irrigation paused at {current_time}")
+
         return jsonify({"success": True, "message": "Rain alert processed"})
     except Exception as e:
+        print(f"❌ Rain alert error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/rain/stopped', methods=['POST'])
@@ -268,6 +282,8 @@ def rain_stopped():
                         "message": f"Timer resumed after rain - {duration} minutes remaining",
                         "timestamp": current_time
                     }]
+
+                    print(f"☀️ Rain stopped: Irrigation resumed for {duration} minutes")
             else:
                 irrigation_state["paused_due_to_rain"] = None
                 irrigation_state["irrigation_messages"] = [{
@@ -276,8 +292,11 @@ def rain_stopped():
                     "timestamp": current_time
                 }]
 
+                print(f"☀️ Rain stopped: Irrigation cancelled - {reason}")
+
         return jsonify({"success": True, "message": "Rain stopped processed"})
     except Exception as e:
+        print(f"❌ Rain stopped error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/irrigation/control', methods=['POST'])
@@ -288,6 +307,8 @@ def irrigation_control():
         action = data.get('action')
         duration = data.get('duration', 10)
         current_time = datetime.datetime.now().isoformat()
+
+        print(f"🎛️ Irrigation control: {action}, duration: {duration}")
 
         if action == 'start':
             if sensor_data.get("rain_detected", False):
@@ -306,6 +327,7 @@ def irrigation_control():
                     "duration": duration
                 })
 
+                print(f"✅ Manual irrigation started for {duration} minutes")
                 return jsonify({"success": True, "message": f"Irrigation started for {duration} minutes"})
             else:
                 return jsonify({"success": False, "error": "Failed to start ESP32 pump"}), 500
@@ -320,12 +342,14 @@ def irrigation_control():
                     "action": "manual_stop"
                 })
 
+                print(f"🛑 Manual irrigation stopped")
                 return jsonify({"success": True, "message": "Irrigation stopped"})
             else:
                 return jsonify({"success": False, "error": "Failed to stop ESP32 pump"}), 500
 
         return jsonify({"success": False, "error": "Invalid action"}), 400
     except Exception as e:
+        print(f"❌ Irrigation control error: {e}")
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/motor-log', methods=['GET'])
@@ -361,6 +385,8 @@ def chat_with_ai():
         chat_history.append(chat_entry)
         chat_history = chat_history[-100:]
 
+        print(f"💬 Chat: {message[:50]}... -> {response[:50]}...")
+
         return jsonify({
             "success": True,
             "response": response,
@@ -368,39 +394,57 @@ def chat_with_ai():
             "timestamp": chat_entry["timestamp"]
         })
     except Exception as e:
+        print(f"❌ Chat error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 def start_esp32_irrigation(duration_minutes: int, irrigation_type: str = "manual") -> bool:
     if not esp32_ip:
+        print(f"⚠️ Cannot start irrigation - ESP32 IP not available")
         return False
     try:
         url = f"http://{esp32_ip}/pump/start"
         response = requests.post(url, json={"duration": duration_minutes}, timeout=10)
         if response.status_code == 200:
             sensor_data["pump_running"] = True
+            print(f"✅ ESP32 pump started for {duration_minutes} minutes ({irrigation_type})")
             return True
-        return False
-    except:
+        else:
+            print(f"❌ ESP32 pump start failed - HTTP {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ ESP32 communication error: {e}")
         return False
 
 def stop_esp32_irrigation() -> bool:
     if not esp32_ip:
+        print(f"⚠️ Cannot stop irrigation - ESP32 IP not available")
         return False
     try:
         url = f"http://{esp32_ip}/pump/stop"
         response = requests.post(url, timeout=10)
         if response.status_code == 200:
             sensor_data["pump_running"] = False
+            print(f"✅ ESP32 pump stopped")
             return True
-        return False
-    except:
+        else:
+            print(f"❌ ESP32 pump stop failed - HTTP {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ ESP32 communication error: {e}")
         return False
 
 if __name__ == '__main__':
-    print("🚀 AgroSmart AI API Server with Complete Features")
-    print("📡 Server: http://localhost:5000")
+    print("🚀 AgroSmart AI API Server - Fixed Connection Issues")
+    print("📡 Server will start on: http://0.0.0.0:5000")
     print("🌧️ Rain Management: Active")
     print("🤖 AI Engine: Ready")
     print("💬 Farming Chatbot: Ready")
     print("📊 Motor Logging: Active")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print("🔧 CORS: Enabled for all origins")
+    print("")
+    print("Local access: http://localhost:5000")
+    print("Network access: http://<YOUR_IP>:5000")
+    print("")
+
+    # Critical fix: Ensure proper binding
+    app.run(host='0.0.0.0', port=5000, debug=False)
