@@ -3,24 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AgroSmart — ESP32 Smart Irrigation with Rain Management</title>
+  <title>AgroSmart — ESP32 Smart Irrigation</title>
   <style>
     :root {
       --bg: #f1f8e9; 
       --card: #ffffff; 
       --accent: #4caf50; 
       --muted: #666666;
-      --glass: rgba(76,175,80,0.1); 
       --danger: #f44336; 
       --success: #4caf50;
       --card-border: rgba(76,175,80,0.2);
       --primary-green: #2e7d32;
       --light-green: #c8e6c9;
-      --dark-green: #1b5e20;
-      --background-green: #e8f5e8;
       --warning: #ff9800;
       --rain-blue: #2196F3;
-      --info-blue: #03a9f4;
     }
 
     * { 
@@ -40,6 +36,27 @@
       max-width: 1200px; 
       margin: 0 auto; 
       padding: 20px; 
+    }
+
+    /* Connection Status */
+    .connection-banner {
+      background: linear-gradient(135deg, var(--danger), #ff5252);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+    }
+
+    .connection-banner.show {
+      display: flex;
+    }
+
+    .connection-banner.connected {
+      background: linear-gradient(135deg, var(--success), #66bb6a);
     }
 
     /* Header */
@@ -458,32 +475,6 @@
       color: var(--danger); 
     }
 
-    /* Connection Status */
-    .connection-status { 
-      display: flex; 
-      align-items: center; 
-      gap: 8px; 
-      font-size: 14px; 
-      font-weight: 600;
-    }
-
-    .status-dot { 
-      width: 10px; 
-      height: 10px; 
-      border-radius: 50%; 
-      background: var(--danger);
-    }
-
-    .status-dot.connected { 
-      background: var(--success); 
-      animation: pulse-dot 2s infinite; 
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
     /* Control Buttons */
     .control-section { 
       display: flex; 
@@ -714,11 +705,17 @@
 </head>
 <body>
   <div class="app">
+    <!-- Connection Status Banner -->
+    <div class="connection-banner" id="connectionBanner">
+      <div>🔌</div>
+      <div id="connectionMessage">Connecting to backend server...</div>
+    </div>
+
     <!-- Motor Log Modal -->
     <div class="modal-overlay" id="motorLogModal">
       <div class="modal">
         <div class="modal-header">
-          <div class="modal-title">Motor Log & System History</div>
+          <div class="modal-title" data-translate="motor_log">Motor Log & System History</div>
           <button class="close-btn" id="closeMotorLogModal">×</button>
         </div>
         <div class="modal-body">
@@ -730,8 +727,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-ghost" id="refreshMotorLog">Refresh</button>
-          <button class="btn-primary" id="closeMotorLogBtn">Close</button>
+          <button class="btn-ghost" id="refreshMotorLog" data-translate="refresh">Refresh</button>
+          <button class="btn-primary" id="closeMotorLogBtn" data-translate="close">Close</button>
         </div>
       </div>
     </div>
@@ -740,7 +737,7 @@
     <div class="modal-overlay" id="notificationsModal">
       <div class="modal">
         <div class="modal-header">
-          <div class="modal-title">System Notifications & Alerts</div>
+          <div class="modal-title" data-translate="notifications">System Notifications & Alerts</div>
           <button class="close-btn" id="closeNotificationsModal">×</button>
         </div>
         <div class="modal-body">
@@ -760,8 +757,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-ghost" id="clearNotifications">Clear All</button>
-          <button class="btn-primary" id="closeNotificationsBtn">Close</button>
+          <button class="btn-ghost" id="clearNotifications" data-translate="clear_all">Clear All</button>
+          <button class="btn-primary" id="closeNotificationsBtn" data-translate="close">Close</button>
         </div>
       </div>
     </div>
@@ -775,7 +772,7 @@
           </div>
           <button class="close-btn" id="closeChatbot" style="color: white;">×</button>
         </div>
-        <div style="flex: 1; padding: 20px; overflow-y: auto; background: linear-gradient(135deg, #f8fff8, var(--background-green));" id="chatbotMessages">
+        <div style="flex: 1; padding: 20px; overflow-y: auto; background: linear-gradient(135deg, #f8fff8, var(--light-green));" id="chatbotMessages">
           <div style="margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px;">
             <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 16px;">🌱</div>
             <div style="background: var(--light-green); padding: 12px 16px; border-radius: 16px; border-left: 4px solid var(--accent);">
@@ -784,7 +781,7 @@
           </div>
         </div>
         <div style="padding: 16px 20px; background: var(--card); border-top: 1px solid var(--card-border); display: flex; gap: 12px; align-items: center;">
-          <input type="text" id="chatbotInput" data-translate-placeholder="chat_placeholder" placeholder="Ask me about farming, irrigation, crops..." style="flex: 1; padding: 12px 16px; border: 2px solid var(--card-border); border-radius: 25px; background: var(--background-green); color: var(--primary-green); font-size: 14px; outline: none;">
+          <input type="text" id="chatbotInput" data-translate-placeholder="chat_placeholder" placeholder="Ask me about farming, irrigation, crops..." style="flex: 1; padding: 12px 16px; border: 2px solid var(--card-border); border-radius: 25px; background: var(--light-green); color: var(--primary-green); font-size: 14px; outline: none;">
           <button id="chatbotSend" style="width: 44px; height: 44px; border-radius: 50%; background: var(--accent); border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px;">▶</button>
         </div>
       </div>
@@ -904,14 +901,13 @@
       <div class="sidebar">
         <!-- Connection Status -->
         <div class="card">
-          <div class="card-title" data-translate="connection_status">ESP32 Connection</div>
-          <div class="connection-status" id="connectionStatus">
-            <div class="status-dot" id="connectionDot"></div>
-            <span id="connectionText" data-translate="connecting">Connecting...</span>
-          </div>
-          <div style="margin-top: 12px; font-size: 12px; color: var(--muted);">
-            <div>ESP32 IP: <span id="esp32IP">--</span></div>
-            <div data-translate="data_frequency">Data updates every 5 seconds</div>
+          <div class="card-title" data-translate="connection_status">Connection Status</div>
+          <div style="margin-top: 12px; font-size: 14px;">
+            <div><strong>Backend:</strong> <span id="backendStatus">Checking...</span></div>
+            <div><strong>ESP32:</strong> <span id="esp32Status">--</span></div>
+            <div style="margin-top: 8px; font-size: 12px; color: var(--muted);">
+              <div data-translate="data_frequency">Data updates every 5 seconds</div>
+            </div>
           </div>
         </div>
 
@@ -946,6 +942,25 @@
   </div>
 
   <script>
+    // FIXED: Auto-detect API base URL based on current location
+    const getApiBaseUrl = () => {
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+
+      // If accessing via localhost or 127.0.0.1, use localhost for API
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
+        return 'http://localhost:5000';
+      }
+
+      // If accessing via IP address, use same IP for API
+      if (hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+        return `${protocol}//${hostname}:5000`;
+      }
+
+      // Default fallback
+      return 'http://localhost:5000';
+    };
+
     // Translation system
     const translations = {
       en: {
@@ -972,12 +987,9 @@
         start_pump: "🚀 Start Pump (10 min)",
         stop_pump: "🛑 Stop Pump",
         refresh_data: "🔄 Refresh Data",
-        connection_status: "ESP32 Connection",
+        connection_status: "Connection Status",
         system_info: "System Information",
         last_updated: "Last Updated:",
-        connecting: "Connecting...",
-        connected: "Connected",
-        disconnected: "Disconnected",
         data_frequency: "Data updates every 5 seconds",
         rain_management: "Rain management active",
         auto_pause: "Auto pause/resume enabled",
@@ -986,9 +998,14 @@
         motor_label: "MOTOR",
         alerts_label: "ALERTS",
         chat_label: "AI CHAT",
+        motor_log: "Motor Log & System History",
+        notifications: "System Notifications & Alerts",
         farming_assistant: "Farming Assistant",
         chat_welcome: "Hello! I'm your AI farming assistant. Ask me about irrigation, crops, soil management, pest control, or weather. Your ESP32 sensors provide real-time data for smart farming decisions!",
         chat_placeholder: "Ask me about farming, irrigation, crops...",
+        refresh: "Refresh",
+        close: "Close",
+        clear_all: "Clear All",
         raining: "🌧️ Raining",
         no_rain: "☀️ No Rain",
         pump_on: "🟢 Running",
@@ -1018,12 +1035,9 @@
         start_pump: "🚀 पंप शुरू करें (10 मिनट)",
         stop_pump: "🛑 पंप बंद करें",
         refresh_data: "🔄 डेटा रिफ्रेश करें",
-        connection_status: "ESP32 कनेक्शन",
+        connection_status: "कनेक्शन स्थिति",
         system_info: "सिस्टम जानकारी",
         last_updated: "अंतिम अपडेट:",
-        connecting: "कनेक्ट हो रहा है...",
-        connected: "जुड़ा हुआ",
-        disconnected: "डिस्कनेक्ट",
         data_frequency: "डेटा हर 5 सेकंड में अपडेट होता है",
         rain_management: "बारिश प्रबंधन सक्रिय",
         auto_pause: "ऑटो पॉज़/रिज्यूम सक्षम",
@@ -1032,9 +1046,14 @@
         motor_label: "मोटर",
         alerts_label: "अलर्ट",
         chat_label: "AI चैट",
+        motor_log: "मोटर लॉग और सिस्टम इतिहास",
+        notifications: "सिस्टम सूचनाएं और अलर्ट",
         farming_assistant: "कृषि सहायक",
         chat_welcome: "नमस्ते! मैं आपका AI कृषि सहायक हूँ। मुझसे सिंचाई, फसल, मिट्टी प्रबंधन, कीट नियंत्रण या मौसम के बारे में पूछें। आपके ESP32 सेंसर स्मार्ट खेती के निर्णयों के लिए रीयल-टाइम डेटा प्रदान करते हैं!",
         chat_placeholder: "मुझसे खेती, सिंचाई, फसल के बारे में पूछें...",
+        refresh: "रिफ्रेश",
+        close: "बंद करें",
+        clear_all: "सभी साफ़ करें",
         raining: "🌧️ बारिश",
         no_rain: "☀️ कोई बारिश नहीं",
         pump_on: "🟢 चल रहा है",
@@ -1064,12 +1083,9 @@
         start_pump: "🚀 पम्प सुरु गर्नुहोस् (10 मिनेट)",
         stop_pump: "🛑 पम्प बन्द गर्नुहोस्",
         refresh_data: "🔄 डेटा रिफ्रेश गर्नुहोस्",
-        connection_status: "ESP32 जडान",
+        connection_status: "जडान स्थिति",
         system_info: "प्रणाली जानकारी",
         last_updated: "अन्तिम अपडेट:",
-        connecting: "जडान गर्दै...",
-        connected: "जडित",
-        disconnected: "विच्छेदित",
         data_frequency: "डेटा प्रत्येक 5 सेकेन्डमा अपडेट हुन्छ",
         rain_management: "वर्षा व्यवस्थापन सक्रिय",
         auto_pause: "स्वचालित रोक/पुनः सुरु सक्षम",
@@ -1078,9 +1094,14 @@
         motor_label: "मोटर",
         alerts_label: "अलर्ट",
         chat_label: "AI च्याट",
+        motor_log: "मोटर लग र सिस्टम इतिहास",
+        notifications: "सिस्टम सूचनाहरू र अलर्टहरू",
         farming_assistant: "कृषि सहायक",
         chat_welcome: "नमस्ते! म तपाईंको AI कृषि सहायक हुँ। मलाई सिंचाई, बाली, माटो व्यवस्थापन, कीट नियन्त्रण वा मौसमको बारेमा सोध्नुहोस्। तपाईंका ESP32 सेन्सरहरूले स्मार्ट खेतीका निर्णयहरूका लागि रियल-टाइम डेटा प्रदान गर्छन्!",
         chat_placeholder: "मलाई खेती, सिंचाई, बालीको बारेमा सोध्नुहोस्...",
+        refresh: "रिफ्रेश",
+        close: "बन्द गर्नुहोस्",
+        clear_all: "सबै मेटाउनुहोस्",
         raining: "🌧️ वर्षा",
         no_rain: "☀️ वर्षा छैन",
         pump_on: "🟢 चलिरहेको",
@@ -1091,16 +1112,22 @@
     // Application state
     let currentLanguage = localStorage.getItem('agrosmart-language') || 'en';
     let currentMode = 'manual'; // manual or automatic
-    let apiBaseUrl = '/api';
+    let apiBaseUrl = getApiBaseUrl();
     let lastSensorUpdate = null;
     let updateInterval = null;
     let aiCheckInterval = null;
+    let connectionCheckInterval = null;
+    let backendConnected = false;
+
+    console.log('🔧 API Base URL:', apiBaseUrl);
 
     // DOM elements
     const elements = {
       modeToggle: document.getElementById('modeToggle'),
       languageButton: document.getElementById('languageButton'),
       languageDropdown: document.getElementById('languageDropdown'),
+      connectionBanner: document.getElementById('connectionBanner'),
+      connectionMessage: document.getElementById('connectionMessage'),
       rainBanner: document.getElementById('rainBanner'),
       pausedMessage: document.getElementById('pausedMessage'),
       resumedMessage: document.getElementById('resumedMessage'),
@@ -1109,9 +1136,8 @@
       aiDecisionText: document.getElementById('aiDecisionText'),
       aiReasoningText: document.getElementById('aiReasoningText'),
       manualControlSection: document.getElementById('manualControlSection'),
-      connectionDot: document.getElementById('connectionDot'),
-      connectionText: document.getElementById('connectionText'),
-      esp32IP: document.getElementById('esp32IP'),
+      backendStatus: document.getElementById('backendStatus'),
+      esp32Status: document.getElementById('esp32Status'),
       lastUpdatedTime: document.getElementById('lastUpdatedTime'),
       startPumpBtn: document.getElementById('startPumpBtn'),
       stopPumpBtn: document.getElementById('stopPumpBtn'),
@@ -1126,8 +1152,62 @@
       setupEventListeners();
       translatePage();
       updateModeDisplay();
-      startDataUpdates();
+      startConnectionCheck();
       fetchSensorData(); // Initial fetch
+    }
+
+    function startConnectionCheck() {
+      // Show connection banner initially
+      elements.connectionBanner.classList.add('show');
+      elements.connectionMessage.textContent = `Connecting to ${apiBaseUrl}...`;
+
+      // Check backend connection
+      checkBackendConnection();
+
+      // Set up regular connection monitoring
+      connectionCheckInterval = setInterval(checkBackendConnection, 10000); // Every 10 seconds
+    }
+
+    async function checkBackendConnection() {
+      try {
+        const response = await fetch(`${apiBaseUrl}/`, { timeout: 5000 });
+
+        if (response.ok) {
+          const data = await response.json();
+          backendConnected = true;
+          elements.backendStatus.textContent = '🟢 Connected';
+          elements.connectionBanner.classList.add('connected');
+          elements.connectionMessage.textContent = `✅ Connected to backend server (v${data.version || 'Unknown'})`;
+
+          // Hide banner after 3 seconds if connected
+          setTimeout(() => {
+            if (backendConnected) {
+              elements.connectionBanner.classList.remove('show');
+            }
+          }, 3000);
+
+          // Start data updates if not already running
+          if (!updateInterval) {
+            startDataUpdates();
+          }
+        } else {
+          throw new Error(`HTTP ${response.status}`);
+        }
+      } catch (error) {
+        backendConnected = false;
+        elements.backendStatus.textContent = '🔴 Disconnected';
+        elements.connectionBanner.classList.remove('connected');
+        elements.connectionBanner.classList.add('show');
+        elements.connectionMessage.textContent = `❌ Cannot connect to ${apiBaseUrl} - Check if backend is running`;
+
+        console.error('Backend connection failed:', error);
+
+        // Stop data updates if backend is down
+        if (updateInterval) {
+          clearInterval(updateInterval);
+          updateInterval = null;
+        }
+      }
     }
 
     // Setup event listeners
@@ -1156,6 +1236,7 @@
       elements.stopPumpBtn.addEventListener('click', stopPump);
       elements.refreshBtn.addEventListener('click', () => {
         fetchSensorData();
+        checkBackendConnection();
         showNotification('Data refreshed!', 'success');
       });
 
@@ -1276,8 +1357,13 @@
 
     // Data fetching and updates
     async function fetchSensorData() {
+      if (!backendConnected) {
+        console.log('⚠️ Skipping sensor data fetch - backend not connected');
+        return;
+      }
+
       try {
-        const response = await fetch(`${apiBaseUrl}/sensors`);
+        const response = await fetch(`${apiBaseUrl}/api/sensors`);
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -1286,7 +1372,7 @@
         const data = await response.json();
 
         updateSensorDisplay(data);
-        updateConnectionStatus(true, data.esp32_ip);
+        updateConnectionStatus(data);
         handleRainStatus(data);
         handleIrrigationMessages(data);
 
@@ -1295,16 +1381,16 @@
 
       } catch (error) {
         console.error('Error fetching sensor data:', error);
-        updateConnectionStatus(false);
+        elements.backendStatus.textContent = '🔴 Error';
         showNotification('Connection error - retrying...', 'error');
       }
     }
 
     async function fetchAIDecision() {
-      if (currentMode !== 'automatic') return;
+      if (currentMode !== 'automatic' || !backendConnected) return;
 
       try {
-        const response = await fetch(`${apiBaseUrl}/ai/analyze`);
+        const response = await fetch(`${apiBaseUrl}/api/ai/analyze`);
 
         if (response.ok) {
           const decision = await response.json();
@@ -1396,14 +1482,12 @@
       }
     }
 
-    function updateConnectionStatus(connected, esp32IP = null) {
-      if (connected) {
-        elements.connectionDot.classList.add('connected');
-        elements.connectionText.textContent = translations[currentLanguage].connected;
-        elements.esp32IP.textContent = esp32IP || '--';
+    function updateConnectionStatus(data) {
+      // ESP32 status
+      if (data.esp32_ip) {
+        elements.esp32Status.textContent = `🟢 ${data.esp32_ip}`;
       } else {
-        elements.connectionDot.classList.remove('connected');
-        elements.connectionText.textContent = translations[currentLanguage].disconnected;
+        elements.esp32Status.textContent = '🔴 Not connected';
       }
     }
 
@@ -1447,6 +1531,11 @@
 
     // Control functions
     async function startPump() {
+      if (!backendConnected) {
+        showNotification('Backend not connected!', 'error');
+        return;
+      }
+
       if (elements.startPumpBtn.disabled) {
         showNotification('Cannot start pump during rain!', 'warning');
         return;
@@ -1456,7 +1545,7 @@
         elements.startPumpBtn.disabled = true;
         elements.startPumpBtn.textContent = 'Starting...';
 
-        const response = await fetch(`${apiBaseUrl}/irrigation/control`, {
+        const response = await fetch(`${apiBaseUrl}/api/irrigation/control`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -1485,11 +1574,16 @@
     }
 
     async function stopPump() {
+      if (!backendConnected) {
+        showNotification('Backend not connected!', 'error');
+        return;
+      }
+
       try {
         elements.stopPumpBtn.disabled = true;
         elements.stopPumpBtn.textContent = 'Stopping...';
 
-        const response = await fetch(`${apiBaseUrl}/irrigation/control`, {
+        const response = await fetch(`${apiBaseUrl}/api/irrigation/control`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -1517,10 +1611,15 @@
     }
 
     async function openMotorLog() {
+      if (!backendConnected) {
+        showNotification('Backend not connected!', 'error');
+        return;
+      }
+
       document.getElementById('motorLogModal').classList.add('active');
 
       try {
-        const response = await fetch(`${apiBaseUrl}/motor-log`);
+        const response = await fetch(`${apiBaseUrl}/api/motor-log`);
         const data = await response.json();
 
         const logContent = document.getElementById('motorLogContent');
@@ -1553,6 +1652,11 @@
     }
 
     async function sendChatMessage() {
+      if (!backendConnected) {
+        showNotification('Backend not connected!', 'error');
+        return;
+      }
+
       const input = document.getElementById('chatbotInput');
       const message = input.value.trim();
 
@@ -1562,7 +1666,7 @@
       input.value = '';
 
       try {
-        const response = await fetch(`${apiBaseUrl}/chat`, {
+        const response = await fetch(`${apiBaseUrl}/api/chat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -1655,7 +1759,12 @@
 
     function startDataUpdates() {
       // Update every 5 seconds as requested
-      updateInterval = setInterval(fetchSensorData, 5000);
+      if (updateInterval) clearInterval(updateInterval);
+      updateInterval = setInterval(() => {
+        if (backendConnected) {
+          fetchSensorData();
+        }
+      }, 5000);
     }
 
     function stopDataUpdates() {
@@ -1671,11 +1780,14 @@
         stopDataUpdates();
         stopAIMonitoring();
       } else {
-        startDataUpdates();
-        if (currentMode === 'automatic') {
-          startAIMonitoring();
+        if (backendConnected) {
+          startDataUpdates();
+          if (currentMode === 'automatic') {
+            startAIMonitoring();
+          }
         }
         fetchSensorData(); // Immediate update when page becomes visible
+        checkBackendConnection(); // Check connection when page becomes visible
       }
     });
 
